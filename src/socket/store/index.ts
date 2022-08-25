@@ -1,11 +1,18 @@
 import { Server, Socket } from "socket.io";
-import { SocketUser } from "../../types";
+import {
+  FriendshipKey,
+  FriendshipValue,
+  SocketUser,
+  ReceivedMessage,
+} from "../../types";
 
 class SocketStore {
   private connectedUsers: Map<string, SocketUser>;
   private userInvitations: Map<string, Array<string>>;
   private friendsList: Map<string, Array<string>>;
   private userMapping: Map<string, string>;
+  private chatMessages: Map<string, Array<Omit<ReceivedMessage, "token">>>;
+  private friendshipMap: Map<FriendshipKey, FriendshipValue>;
   private io: Server | null;
   private socket: Socket | null;
 
@@ -14,6 +21,8 @@ class SocketStore {
     this.userInvitations = new Map();
     this.friendsList = new Map();
     this.userMapping = new Map();
+    this.chatMessages = new Map();
+    this.friendshipMap = new Map();
     this.io = null;
     this.socket = null;
   }
@@ -108,22 +117,22 @@ class SocketStore {
   }
 
   public setUserInvitations(username: string, friend: string) {
-    const socketId = this.userMapping.get(friend);
+    const friendSocketId = this.userMapping.get(friend);
 
-    if (!socketId) {
+    if (!friendSocketId) {
       return;
     }
 
-    if (this.userInvitations.has(socketId)) {
-      this.userInvitations.get(socketId)?.push(username);
+    if (this.userInvitations.has(friendSocketId)) {
+      this.userInvitations.get(friendSocketId)?.push(username);
     } else {
-      this.userInvitations.set(socketId, [username]);
+      this.userInvitations.set(friendSocketId, [username]);
     }
 
-    //console.log({ socketId, mapping: this.userMapping });
+    //console.log({ friendSocketId, mapping: this.userMapping });
 
-    this.sendInvitationEvent(socketId);
-    return this.userInvitations.get(socketId!);
+    this.sendInvitationEvent(friendSocketId);
+    return this.userInvitations.get(friendSocketId!);
   }
 
   public checkIfUserIsOnline(name: string) {
@@ -131,7 +140,9 @@ class SocketStore {
   }
 
   public isAlreadyFriend(username: string, friend: string) {
-    return this.friendsList.get(username)!.indexOf(friend);
+    return !!this.friendsList
+      .get(username)!
+      .find((userFriend) => userFriend === friend);
   }
 
   public addFriend(username: string, friend: string) {
@@ -164,6 +175,56 @@ class SocketStore {
     }); */
   }
 
+  public checkIfInvitationSent(username: string, friend: string) {
+    const friendSocketId = this.userMapping.get(friend);
+
+    const isSent = this.userInvitations
+      .get(friendSocketId!)
+      ?.find((invitedUser) => invitedUser === username);
+    return !!isSent;
+  }
+
+  public sendReceivedMessage(data: ReceivedMessage) {
+    const friendSocketId = this.userMapping.get(data.to);
+    const socketId = this.userMapping.get(data.from);
+    console.log({ ...data });
+    this.storeChats(data);
+    console.log({ allChats: this.chatMessages, socketId, friendSocketId });
+    this.io?.to(socketId!).emit("receive-message", data);
+    this.io?.to(friendSocketId!).emit("receive-message", data);
+  }
+
+  public checkIfInvitationPending(username: string, friend: string) {
+    const socketId = this.userMapping.get(username);
+
+    const isPending = this.userInvitations
+      .get(socketId!)
+      ?.find((pendingFriend) => pendingFriend === friend);
+    return !!isPending;
+  }
+
+  public createRoom(room: string, friends: Array<string>, username: string) {
+    const sockeId = this.userMapping.get(username);
+
+    this.friendshipMap.set(username, { token: room, friends });
+    this.chatMessages.set(room, []);
+
+    const mappingData = {
+      initiator: username,
+      data: this.friendshipMap.get(username),
+    };
+    // send message to all the friend socket ids
+    for (let i = 0; i < friends.length; i++) {
+      this.io
+        ?.to(this.userMapping.get(friends[i])!)
+        .emit("receive-room", mappingData);
+    }
+
+    this.socket?.to(sockeId!).emit("receive-room", mappingData);
+
+    console.log("friends map", this.friendshipMap, mappingData);
+  }
+
   private sendInvitationEvent(socketId: string) {
     this.io?.to(socketId!).emit("invite-user", {
       userInvitations: this.userInvitations.get(socketId!),
@@ -186,6 +247,24 @@ class SocketStore {
       allInvitations?.filter((invitation) => invitation !== friend) ?? [];
     this.userInvitations.set(socketId, filteredInvitations);
     this.sendInvitationEvent(socketId);
+  }
+
+  private storeChats({ from, to, message, token }: ReceivedMessage) {
+    if (this.chatMessages.has(token)) {
+      this.chatMessages.get(token)?.push({
+        to,
+        from,
+        message,
+      });
+    } else {
+      this.chatMessages.set(token, [
+        {
+          to,
+          from,
+          message,
+        },
+      ]);
+    }
   }
 }
 

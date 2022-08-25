@@ -11,11 +11,20 @@ router.post("/invite-user", async (req: Request, res: Response) => {
     return;
   }
 
-  /* const isFriend = socketStore.isAlreadyFriend(username, friend);
-  if (isFriend) {
+  if (socketStore.isAlreadyFriend(username, friend)) {
     res.send({ message: `${friend} is already a friend`, type: "error" });
     return;
-  } */
+  }
+
+  if (socketStore.checkIfInvitationPending(username, friend)) {
+    res.send({ message: `pending invitation from ${friend}`, type: "error" });
+    return;
+  }
+
+  if (socketStore.checkIfInvitationSent(username, friend)) {
+    res.send({ message: "invitation already sent", type: "error" });
+    return;
+  }
 
   if (!socketStore.checkIfUserIsOnline(friend)) {
     res.send({ message: "user is not available", type: "error" });
