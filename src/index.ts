@@ -3,7 +3,13 @@ import http from "http";
 import cors from "cors";
 
 import { connectSocket } from "./socket";
-import { inviteUserRouter, friendListRouter } from "./routes";
+import {
+  inviteUserRouter,
+  friendListRouter,
+  inviteGrouprouter,
+  onlineUserRouter,
+  addGroupRoute,
+} from "./routes";
 
 const app = express();
 
@@ -12,6 +18,9 @@ app.use(cors());
 
 app.use("/api", inviteUserRouter);
 app.use("/api", friendListRouter);
+app.use("/api", inviteGrouprouter);
+app.use("/api", onlineUserRouter);
+app.use("/api", addGroupRoute);
 
 const server = http.createServer(app);
 connectSocket(server);

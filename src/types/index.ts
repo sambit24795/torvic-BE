@@ -20,4 +20,14 @@ export type FriendshipValue = {
   token: string;
 };
 
-export type FriendshipKey = string; 
+export type FriendshipKey = string;
+
+export interface Group {
+  groupname: string;
+  allMembers: Array<string>;
+}
+
+export interface GroupChat {
+  from: string;
+  message: string;
+}

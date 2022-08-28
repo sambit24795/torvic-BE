@@ -2,7 +2,6 @@ import { Server, Socket } from "socket.io";
 import { ExtendedError } from "socket.io/dist/namespace";
 import { SocketData } from "../../types";
 import socketStore from "../store";
-import storedSocketInstances from "../socketInstances";
 
 const newConnectionHandler = async (
   socket: Socket & SocketData,
@@ -16,7 +15,6 @@ const newConnectionHandler = async (
     return;
   }
 
-  storedSocketInstances.setAllStoredInstances(socket.user.username, socket);
   socketStore.addNewUsers({
     socketId: socket.id,
     username: socket?.user?.username,

@@ -30,6 +30,16 @@ export default function (port: HttpServer) {
       socketStore.createRoom(data.roomname, data.friends, data.username);
     });
 
+    socket.on("send-group-room", (data) => {
+      console.log("group room name", data);
+      socketStore.createGroupRoom(data.username, data.groupname);
+    });
+
+    socket.on("send-group-message", (data) => {
+      console.log("send-group-message", data);
+      socketStore.sendReceiveGroupMessage(data);
+    });
+
     socket.on("disconnect", () => {
       console.log(`disconnect ${socket.id}`);
       deleteUser(socket);
